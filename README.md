@@ -1,26 +1,57 @@
 # GPTforGDocs
 ## Open AI assistant for Google Docs
 This is a simple menu extension for Google Docs. With it you can select elements in the docs that contain text and have GPT take action on it. 
+
 ## Installation
-To install, simply open a Google Doc and go to *Extensions->Apps Script*. Paste the script into the editor and save. Reload your document.  You can also deploy this as an add-on to make it available in all your Google docs.
+To install, simply open a Google Doc and go to *Extensions->Apps Script*. Paste the script into the editor and save. Reload your document. You can also deploy this as an add-on to make it available in all your Google docs.
+
+## Models and Pricing
+The following models are available:
+- GPT-4o Mini 
+- GPT-4o 
+- O1 Mini 
+- O1 
+
 ## Usage
-Once installed, you will fid a new ChatGPT menu with several items.
-|Command|Action|
-|-----|-----|
-|*Summarize this...* | Create a summary paragraph of the selected text.| 
-|*Extract Keywords...* | Create a list of keywords in the selected text.| 
-|*Expand on this...* | Add several more paragraphs expanding on the idea of the selected text.|
-|*Continue this narrative...* | Continue telling a story based on the initial selected text. The profile is that of a creative writer.|
-|*Continue this report...* | Continue writing a report based on the initial selected text. The profile is that of an academic expert.|
-|*Describe this...* | Write a descriptive text based on the selected elements. Great for describing tables.|
-|*Generate Key Points from this...* | Generate a set of bullet points based on the selected text.|
-|*Generate an Essay about this...* | Write an essay about the topic of the selected text.|
-|*Generate LinkedIn Posts on this...* | Generate LinkedIn posts that could be used to promote the idea in the selected text.|
-|*Generate Tweets on this...* | Generate Tweets that could be used to promote the idea in the selected text.|
-|*Translate this to English...* | Translate the selected text to English.|
+Once installed, you will find a ChatGPT menu with several items organized into categories:
 
-Normally, the generated text is inserted immediately after the selected text. If this doesn't happen, check the start of the document.
+### Content Generation
+- *Generate Essay* - Write an essay about the topic of the selected text
+- *Continue Story* - Continue telling a story based on the initial selected text
+- *Continue Report* - Continue writing a report based on the initial selected text
 
-You will have to set your OpenAI API key using the menu option to do so.
+### Analysis
+- *Summarize* - Create a summary paragraph of the selected text
+- *Extract Keywords* - Create a list of keywords in the selected text
+- *Generate Key Points* - Generate a set of bullet points based on the selected text
 
-GPT-3.5 is the default model. If you wish to use GPT4, you can enable it with the menu item to do so.
+### Social Media
+- *LinkedIn Posts* - Generate LinkedIn posts that could be used to promote the idea in the selected text
+- *Twitter Posts* - Generate Tweets that could be used to promote the idea in the selected text
+
+### Business
+- *Write Email* - Generate a professional email based on the selected text
+- *Generate Response* - Create a response to the selected text
+
+### Other Features
+- *Translate to English* - Translate the selected text to English
+- *Set API Key* - Configure your OpenAI API key
+- *Set AI Model* - Choose between available AI models
+- *Help* - View usage instructions
+
+Generated text is inserted immediately after the selected text. If this doesn't happen, check the start of the document.
+
+## Setup
+1. Set your OpenAI API key using the "Set API Key" menu option
+2. (Optional) Choose your preferred model using "Set AI Model" - GPT-4o Mini is the default
+
+## Credits
+Original by J. Grant, 2023
+Forked and modified by Or Zelig, 2025
+
+## Links
+- Original: https://github.com/jedediahg/GPTforGDocs
+- Fork: https://github.com/orzelig/GDocs-OpenAI
+
+## License
+Apache 2.0
