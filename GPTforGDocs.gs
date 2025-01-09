@@ -5,18 +5,33 @@
 // 
 
 // Globals 
-var aiModel = "gpt-4o-mini"; // Updated default model
-const API_ENDPOINT = "https://api.openai.com/v1/chat/completions";
-const AVAILABLE_MODELS = {
-  "GPT-4o Mini ($0.15)": "gpt-4o-mini",
-  "GPT-4o ($2.50)": "gpt-4o",
-  "O1 Mini ($3.00)": "o1-mini",
-  "O1 ($15.00)": "o1"
+const ENDPOINTS = {
+  OPENAI: "https://api.openai.com/v1/chat/completions",
+  XAI: "https://api.x.ai/v1/chat/completions"
 };
+const AVAILABLE_MODELS = {
+  OPENAI: {
+    "GPT-4o Mini": "gpt-4o-mini",
+    "GPT-4o": "gpt-4o",
+    "O1 Mini": "o1-mini",
+    "O1": "o1"
+  },
+  XAI: {
+    "Grok-2": "grok-2-latest"
+  }
+};
+
+// Add provider tracking
+var currentProvider = "openai"; // or "xai"
+var aiModel = "gpt-4o-mini";
 
 // Creates a custom menu in Google Docs
 function onOpen() {
-  DocumentApp.getUi().createMenu("ChatGPT")
+  const currentModel = getCurrentModelInfo();
+  
+  DocumentApp.getUi().createMenu("AI-Writer")
+    .addItem(`Active: ${currentModel}`, "showModelInfo")
+    .addSeparator()
     .addSubMenu(DocumentApp.getUi().createMenu("Content Generation")
       .addItem("Generate Essay", "generatePrompt")
       .addItem("Continue Story", "continueThisStory")
@@ -33,11 +48,13 @@ function onOpen() {
       .addItem("Generate Response", "generateResponse"))
     .addSeparator()
     .addItem("Translate to English", "translateToEN")
-    .addSeparator()
+    .addToUi();
+
+  DocumentApp.getUi().createMenu(`Active: ${currentModel}`)
     .addItem("Set API Key", "setApiKey")
     .addItem("Set AI Model", "setAIModel")
-    .addItem("Help", "help")
     .addToUi();
+
 }
 
 // Functions to prompt based on menu items
@@ -102,68 +119,87 @@ function generateResponse() {
   }
 
 
-//Help
-function help() {
-  const ui = DocumentApp.getUi();
-  const response = ui.alert('Using this add-on is easy. Just highlight the text you want to work on and select the menu option that you want to do. Be sure to select the text from top to bottom so the cursor is at the bottom. The new text will appear after the cursor.\nRemember to set your API key and model first.', ui.ButtonSet.OK_CANCEL);
-}
 
 // Function for setting the API Key
 function setApiKey() {
   try {
-  const ui = DocumentApp.getUi();
-  const response = ui.prompt('Set your OpenAI API Key', 'Please enter your API Key:', ui.ButtonSet.OK_CANCEL);
+    const ui = DocumentApp.getUi();
+    const response = ui.alert('API Key Setup',
+      'Would you like to set up OpenAI or X.AI key?\n\nClick YES for OpenAI\nClick NO for X.AI',
+      ui.ButtonSet.YES_NO_CANCEL);
 
-  if (response.getSelectedButton() == ui.Button.OK) {
-    const apiKey = response.getResponseText();
-    if (apiKey) {
-      PropertiesService.getUserProperties().setProperty("OPENAI_API_KEY", apiKey);
-      ui.alert('API Key set successfully.');
-    } else {
-      ui.alert('No API Key entered.');
+    if (response === ui.Button.CANCEL) return;
+    
+    const provider = response === ui.Button.YES ? "OPENAI" : "XAI";
+    const keyResponse = ui.prompt(`Set your ${provider} API Key`, 'Please enter your API Key:', ui.ButtonSet.OK_CANCEL);
+
+    if (keyResponse.getSelectedButton() == ui.Button.OK) {
+      const apiKey = keyResponse.getResponseText();
+      if (apiKey) {
+        PropertiesService.getUserProperties().setProperty(`${provider}_API_KEY`, apiKey);
+        ui.alert(`${provider} API Key set successfully.`);
+      } else {
+        ui.alert('No API Key entered.');
+      }
     }
-  }
-  }
-  catch(err){
+  } catch(err) {
     Logger.log(err);
-    }
+  }
 }
 
 // Function for setting the AI Model 
 function setAIModel() {
   try {
     const ui = DocumentApp.getUi();
+    
+    // Check if both API keys are set
+    const openaiKey = PropertiesService.getUserProperties().getProperty("OPENAI_API_KEY");
+    const xaiKey = PropertiesService.getUserProperties().getProperty("XAI_API_KEY");
+    
+    let modelOptions = "";
+    let counter = 1;
+    let allModels = [];  // Add this array to track all available models
+    
+    if (openaiKey) {
+      Object.entries(AVAILABLE_MODELS.OPENAI).forEach(([name, id]) => {
+        modelOptions += `${counter}. ${name} (OpenAI)\n`;
+        allModels.push({ provider: "OPENAI", id: id });  // Store model info
+        counter++;
+      });
+    }
+    
+    if (xaiKey) {
+      Object.entries(AVAILABLE_MODELS.XAI).forEach(([name, id]) => {
+        modelOptions += `${counter}. ${name} (X.AI)\n`;
+        allModels.push({ provider: "XAI", id: id });  // Store model info
+        counter++;
+      });
+    }
+    
+    if (!modelOptions) {
+      ui.alert('Please set up at least one API key first.');
+      return;
+    }
+
     const response = ui.prompt(
       'Select AI Model',
-      'Enter model number:\n' +
-      '1. GPT-4O Mini ($0.15/1k tokens) - Good balance of performance and cost\n' +
-      '2. GPT-4O ($2.50/1k tokens) - Excellent performance\n' +
-      '3. O1 Mini ($3.00/1k tokens) - Advanced capabilities\n' +
-      '4. O1 ($15.00/1k tokens) - Most powerful model',
+      'Enter model number:\n' + modelOptions,
       ui.ButtonSet.OK_CANCEL
     );
 
     if (response.getSelectedButton() == ui.Button.OK) {
-      const selection = response.getResponseText();
-      switch(selection) {
-        case "1":
-          aiModel = "gpt-4o-mini";
-          break;
-        case "2":
-          aiModel = "gpt-4o";
-          break;
-        case "3":
-          aiModel = "o1-mini";
-          break;
-        case "4":
-          aiModel = "o1";
-          break;
-        default:
-          ui.alert('Invalid selection. Using default GPT-4O Mini.');
-          aiModel = "gpt-4o-mini";
+      const selection = parseInt(response.getResponseText()) - 1;  // Convert to 0-based index
+      
+      // Validate selection
+      if (selection >= 0 && selection < allModels.length) {
+        const selectedModel = allModels[selection];
+        aiModel = selectedModel.id;  // Set the actual model ID
+        PropertiesService.getUserProperties().setProperty("CURRENT_PROVIDER", selectedModel.provider);
+        PropertiesService.getUserProperties().setProperty("CURRENT_MODEL", selectedModel.id);
+        ui.alert(`AI Model set successfully to ${selectedModel.id} using ${selectedModel.provider}`);
+      } else {
+        ui.alert('Invalid selection.');
       }
-      PropertiesService.getUserProperties().setProperty("OPENAI_Model", aiModel);
-      ui.alert('AI Model set successfully to ' + aiModel);
     }
   } catch(err) {
     Logger.log(err);
@@ -214,19 +250,60 @@ function handleContentGeneration(promptTemplate, newInstruction, maxTokens) {
 }
 
 
-// Sends the prompt and gets the response from the API
+// Add debug logging function
+function debugLog(message, data) {
+  Logger.log(`DEBUG: ${message}`);
+  if (data) Logger.log(JSON.stringify(data, null, 2));
+}
+
+// Add validation for X.AI requests
+function validateXAIRequest(requestBody) {
+  if (!requestBody.model.startsWith('grok-')) {
+    throw new Error('Invalid model for X.AI. Must use a Grok model.');
+  }
+  
+  // Validate message format
+  if (!Array.isArray(requestBody.messages)) {
+    throw new Error('Messages must be an array');
+  }
+  
+  requestBody.messages.forEach((msg, index) => {
+    if (!msg.role || !msg.content) {
+      throw new Error(`Invalid message format at index ${index}`);
+    }
+    if (!['system', 'user', 'assistant'].includes(msg.role)) {
+      throw new Error(`Invalid role "${msg.role}" at index ${index}`);
+    }
+  });
+  
+  return requestBody;
+}
+
+// Update getGPTcontent with better debugging
 function getGPTcontent(messages, maxTokens) {
   try {
-    const apiKey = PropertiesService.getUserProperties().getProperty("OPENAI_API_KEY");
+    // Get the current provider and model from stored properties
+    const currentProvider = PropertiesService.getUserProperties().getProperty("CURRENT_PROVIDER") || "OPENAI";
+    const currentModel = PropertiesService.getUserProperties().getProperty("CURRENT_MODEL") || "gpt-4o";
+    
+    debugLog(`Current provider: ${currentProvider}`);
+    debugLog(`Current model: ${currentModel}`);
+    
+    const apiKey = PropertiesService.getUserProperties().getProperty(`${currentProvider}_API_KEY`);
+    debugLog(`API Key exists: ${Boolean(apiKey)}`);
+    
     if (!apiKey) {
-      throw new Error("API Key is not set");
+      throw new Error(`API Key for ${currentProvider} is not set`);
     }
 
+    const endpoint = ENDPOINTS[currentProvider];
+    debugLog(`Using endpoint: ${endpoint}`);
+    
     let retries = 3;
     while (retries > 0) {
       try {
         const requestBody = {
-          model: aiModel,
+          model: currentModel,  // Use the stored model instead of aiModel global
           messages: messages,
           temperature: 0.7,
           max_tokens: maxTokens,
@@ -234,6 +311,8 @@ function getGPTcontent(messages, maxTokens) {
           frequency_penalty: 0,
           presence_penalty: 0
         };
+        
+        debugLog('Request body:', requestBody);
 
         const requestOptions = {
           method: "POST",
@@ -244,33 +323,70 @@ function getGPTcontent(messages, maxTokens) {
           payload: JSON.stringify(requestBody),
           muteHttpExceptions: true
         };
-
-        const response = UrlFetchApp.fetch(API_ENDPOINT, requestOptions);
+        
+        debugLog('Making API request...');
+        const response = UrlFetchApp.fetch(endpoint, requestOptions);
         const responseCode = response.getResponseCode();
+        const responseText = response.getContentText();
+        
+        debugLog(`Response code: ${responseCode}`);
+        debugLog('Response body:', responseText);
         
         if (responseCode === 429) {
+          debugLog('Rate limit hit, retrying...');
           Utilities.sleep(2000);
           retries--;
           continue;
         }
         
         if (responseCode !== 200) {
-          throw new Error(`API returned status ${responseCode}: ${response.getContentText()}`);
+          throw new Error(`API returned status ${responseCode}: ${responseText}`);
         }
 
-        const json = JSON.parse(response.getContentText());
+        const json = JSON.parse(responseText);
         return json.choices[0].message.content;
       } catch (error) {
+        debugLog(`Error in API call: ${error.toString()}`);
         if (retries === 0) throw error;
         retries--;
         Utilities.sleep(1000);
       }
     }
   } catch (error) {
-    Logger.log("Error: " + error.toString());
+    debugLog(`Fatal error: ${error.toString()}`);
     DocumentApp.getUi().alert("API Error: " + error.message);
     return null;
   }
+}
+
+// Add function to get current model display name
+function getCurrentModelInfo() {
+  const provider = PropertiesService.getUserProperties().getProperty("CURRENT_PROVIDER") || "OPENAI";
+  const modelId = PropertiesService.getUserProperties().getProperty("CURRENT_MODEL") || "gpt-4o-mini";
+  
+  // Find the display name for the current model
+  let modelName = modelId;
+  for (const [name, id] of Object.entries(AVAILABLE_MODELS[provider])) {
+    if (id === modelId) {
+      modelName = name;
+      break;
+    }
+  }
+  
+  return `${modelName} (${provider})`;
+}
+
+// Add function to show model info
+function showModelInfo() {
+  const ui = DocumentApp.getUi();
+  const provider = PropertiesService.getUserProperties().getProperty("CURRENT_PROVIDER") || "OPENAI";
+  const modelId = PropertiesService.getUserProperties().getProperty("CURRENT_MODEL") || "gpt-4o-mini";
+  
+  ui.alert(
+    'Current Model Information',
+    `Provider: ${provider}\nModel: ${modelId}`,
+    ui.ButtonSet.OK
+  );
 }
 
 
