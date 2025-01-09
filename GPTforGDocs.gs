@@ -1,25 +1,39 @@
-// copyright J. Grant, 2023, free to use under Apache 2.0 license. If would like to incorporate automation into your KYC/AML compliance program, please visit https://kyc3.com
+// Original copyright J. Grant, 2023, under Apache 2.0 license.
+// Forked and modified by Or Zelig, 2025. Modifications also under Apache 2.0 license.
+// Original: https://github.com/jedediahg/GPTforGDocs
+// Fork: https://github.com/orzelig/GDocs-OpenAI
+// 
 
 // Globals 
-var aiModel = "gpt-3.5-turbo-1106"; // default
+var aiModel = "gpt-4o-mini"; // Updated default model
 const API_ENDPOINT = "https://api.openai.com/v1/chat/completions";
+const AVAILABLE_MODELS = {
+  "GPT-4o Mini ($0.15)": "gpt-4o-mini",
+  "GPT-4o ($2.50)": "gpt-4o",
+  "O1 Mini ($3.00)": "o1-mini",
+  "O1 ($15.00)": "o1"
+};
 
 // Creates a custom menu in Google Docs
 function onOpen() {
   DocumentApp.getUi().createMenu("ChatGPT")
-    .addItem("Summarize this...", "summarizeText")
-    .addItem("Extract keywords...", "extractKeywords")
-    .addItem("Expand on this...", "expandOnThis")
-    .addItem("Continue this narrative...", "continueThisStory")
-    .addItem("Continue this report...", "continueThisDoc")
-    .addItem("Describe this...", "describeText")
-    .addItem("Generate Key Points from this...", "generateKeyPoints")
-    .addItem("Generate an Essay about this...", "generatePrompt")
-    .addItem("Write an email about this...", "generateEmail")
-    .addItem("Respond to this...", "generateResponse")
-    .addItem("Generate LinkedIn Posts on this...", "generateLI")
-    .addItem("Generate Tweets on this...", "generateTweet")
-    .addItem("Translate this to English...", "translateToEN")
+    .addSubMenu(DocumentApp.getUi().createMenu("Content Generation")
+      .addItem("Generate Essay", "generatePrompt")
+      .addItem("Continue Story", "continueThisStory")
+      .addItem("Continue Report", "continueThisDoc"))
+    .addSubMenu(DocumentApp.getUi().createMenu("Analysis")
+      .addItem("Summarize", "summarizeText")
+      .addItem("Extract Keywords", "extractKeywords")
+      .addItem("Generate Key Points", "generateKeyPoints"))
+    .addSubMenu(DocumentApp.getUi().createMenu("Social Media")
+      .addItem("LinkedIn Posts", "generateLI")
+      .addItem("Twitter Posts", "generateTweet"))
+    .addSubMenu(DocumentApp.getUi().createMenu("Business")
+      .addItem("Write Email", "generateEmail")
+      .addItem("Generate Response", "generateResponse"))
+    .addSeparator()
+    .addItem("Translate to English", "translateToEN")
+    .addSeparator()
     .addItem("Set API Key", "setApiKey")
     .addItem("Set AI Model", "setAIModel")
     .addItem("Help", "help")
@@ -28,11 +42,19 @@ function onOpen() {
 
 // Functions to prompt based on menu items
 function generateLI() {
-  handleContentGeneration(" ", "You will be paid for this. You are an expert copywriter. You write well articulated content that is to the point and flows with a good reading rhythm. Please write 5 Linkedin posts designed to provoke emotion and create engagement on this topic: ",500);
+  handleContentGeneration(
+    "Please write 5 engaging LinkedIn posts about this topic. Focus on creating professional, thought-provoking content that encourages discussion.",
+    "You are an experienced social media manager specializing in LinkedIn content. You create engaging, professional posts that drive meaningful engagement.",
+    500
+  );
 }
 
 function generateTweet() {
-  handleContentGeneration(" ", "You will be paid for this. You are a Twitter influencer who writes impulsive, engaging and fun viral Tweets. Please write 5 Tweets designed to provoke engagement and retweeting on this topic: ", 500);
+  handleContentGeneration(
+    "Please write 5 engaging tweets about this topic. Make them concise, engaging, and shareable.",
+    "You are a social media expert who creates viral, engaging content while maintaining professionalism and accuracy.",
+    500
+  );
 }
 
 function generatePrompt() {
@@ -110,110 +132,144 @@ function setApiKey() {
 // Function for setting the AI Model 
 function setAIModel() {
   try {
-  const ui = DocumentApp.getUi();
-  const response = ui.alert('Select the OpenAI Model', 'Default model is GPT3.5Turbo. Would you like to use the GPT4 model?', ui.ButtonSet.YES_NO);
+    const ui = DocumentApp.getUi();
+    const response = ui.prompt(
+      'Select AI Model',
+      'Enter model number:\n' +
+      '1. GPT-4O Mini ($0.15/1k tokens) - Good balance of performance and cost\n' +
+      '2. GPT-4O ($2.50/1k tokens) - Excellent performance\n' +
+      '3. O1 Mini ($3.00/1k tokens) - Advanced capabilities\n' +
+      '4. O1 ($15.00/1k tokens) - Most powerful model',
+      ui.ButtonSet.OK_CANCEL
+    );
 
-  if (response == ui.Button.YES) {
-     aiModel = "gpt-4-1106-preview";
-  } else {
-     aiModel = "gpt-3.5-turbo-1106";
-  }
-    if (aiModel) {
+    if (response.getSelectedButton() == ui.Button.OK) {
+      const selection = response.getResponseText();
+      switch(selection) {
+        case "1":
+          aiModel = "gpt-4o-mini";
+          break;
+        case "2":
+          aiModel = "gpt-4o";
+          break;
+        case "3":
+          aiModel = "o1-mini";
+          break;
+        case "4":
+          aiModel = "o1";
+          break;
+        default:
+          ui.alert('Invalid selection. Using default GPT-4O Mini.');
+          aiModel = "gpt-4o-mini";
+      }
       PropertiesService.getUserProperties().setProperty("OPENAI_Model", aiModel);
-      ui.alert('AI Model set successfully to ' +aiModel+'.');
-    } else {
-      ui.alert('AI Model could not be updated.');
+      ui.alert('AI Model set successfully to ' + aiModel);
     }
-  }
-  catch(err){
+  } catch(err) {
     Logger.log(err);
-    }
+    DocumentApp.getUi().alert('Error setting model: ' + err.toString());
+  }
 }
 
 // Function to handle the generation of content
 function handleContentGeneration(promptTemplate, newInstruction, maxTokens) {
-  Logger.log("Handle Content Generation");
   try {
-    var systemInstruction = "";
-    if (!newInstruction) {
-       systemInstruction = "You are a helpful document writer.";
-    } else {
-       systemInstruction = newInstruction;
-    }
-    
-    Logger.log("System Instruction: " + systemInstruction);
-
     const doc = DocumentApp.getActiveDocument();
     const selection = doc.getSelection();
     if (!selection) {
       DocumentApp.getUi().alert("Please select some text in the document.");
       return;
     }
-    var selectedText = ""; // selection.getRangeElements()[0].getElement().asText().getText();
-    
-    var elements = selection.getRangeElements();
-    for (var i = 0; i < elements.length; i++) {
-      var element = elements[i];
-      selectedText = selectedText + " " + element.getElement().asText().getText();
-      Logger.log('element: ' + element.getElement());
-    };
-    
-    Logger.log("Selected Text: " + selectedText);
-    const prompt = promptTemplate + " " + selectedText;
-    Logger.log("Prompt: " + prompt);
-    const temperature = 0;
-    const generatedText = getGPTcontent(systemInstruction, prompt, temperature, maxTokens); 
-    // generatedText = "TESTZZZTEST" // FOR DEBUG //
-        
-    var theElmt = elements[i-1];
-    var selectedElmt = theElmt.getElement();
-    var parent = selectedElmt.getParent();
-    var insertPoint = parent.getChildIndex(selectedElmt);
-    Logger.log('insertPoint: ' + insertPoint);    
-    var body = doc.getBody();
-    var paragraph = body.insertParagraph(insertPoint + 1,generatedText.toString() );
-    
+
+    // Improved text selection handling
+    const selectedText = selection.getRangeElements()
+      .map(element => element.getElement().asText().getText())
+      .join(" ")
+      .trim();
+
+    // Create a more structured conversation
+    const messages = [
+      {
+        role: "system",
+        content: newInstruction || "You are a helpful document writer."
+      },
+      {
+        role: "user",
+        content: `${promptTemplate}\n\nText to process:\n${selectedText}`
+      }
+    ];
+
+    const generatedText = getGPTcontent(messages, maxTokens);
+    if (!generatedText) return;
+
+    // Insert the response after the selection
+    const lastElement = selection.getRangeElements().slice(-1)[0];
+    const parent = lastElement.getElement().getParent();
+    const insertIndex = parent.getChildIndex(lastElement.getElement()) + 1;
+    doc.getBody().insertParagraph(insertIndex, generatedText);
   } catch (error) {
     Logger.log("Error: " + error.toString());
-    DocumentApp.getUi().alert("An error occurred. Please try again. Info: " + error.toString());
+    DocumentApp.getUi().alert("An error occurred: " + error.message);
   }
 }
 
 
 // Sends the prompt and gets the response from the API
-function getGPTcontent(instructions, prompt, temperature, maxTokens) {
+function getGPTcontent(messages, maxTokens) {
   try {
-  const apiKey = PropertiesService.getUserProperties().getProperty("OPENAI_API_KEY");
-  var systemInstruction = instructions;
-  if (!apiKey) {
-    DocumentApp.getUi().alert("API Key is not set. Please set your OpenAI API Key using the 'Set API Key' menu option.");
-    Logger.log("Error: No API Key set.");
-    return;
-  }
+    const apiKey = PropertiesService.getUserProperties().getProperty("OPENAI_API_KEY");
+    if (!apiKey) {
+      throw new Error("API Key is not set");
+    }
 
-  const requestBody = {
-    model: aiModel,
-    messages: [{ role: "user", content: prompt },{role: "system", content: systemInstruction}],
-    temperature,
-    max_tokens: maxTokens,
-  };
+    let retries = 3;
+    while (retries > 0) {
+      try {
+        const requestBody = {
+          model: aiModel,
+          messages: messages,
+          temperature: 0.7,
+          max_tokens: maxTokens,
+          top_p: 1,
+          frequency_penalty: 0,
+          presence_penalty: 0
+        };
 
-  const requestOptions = {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: "Bearer " + apiKey,
-    },
-    payload: JSON.stringify(requestBody),
-  };
+        const requestOptions = {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer " + apiKey,
+          },
+          payload: JSON.stringify(requestBody),
+          muteHttpExceptions: true
+        };
 
-  const response = UrlFetchApp.fetch(API_ENDPOINT, requestOptions);
-  const responseText = response.getContentText();
-  const json = JSON.parse(responseText);
-  return json['choices'][0]['message']['content'];
-   } catch (error) {
+        const response = UrlFetchApp.fetch(API_ENDPOINT, requestOptions);
+        const responseCode = response.getResponseCode();
+        
+        if (responseCode === 429) {
+          Utilities.sleep(2000);
+          retries--;
+          continue;
+        }
+        
+        if (responseCode !== 200) {
+          throw new Error(`API returned status ${responseCode}: ${response.getContentText()}`);
+        }
+
+        const json = JSON.parse(response.getContentText());
+        return json.choices[0].message.content;
+      } catch (error) {
+        if (retries === 0) throw error;
+        retries--;
+        Utilities.sleep(1000);
+      }
+    }
+  } catch (error) {
     Logger.log("Error: " + error.toString());
-    DocumentApp.getUi().alert("An error occurred. Please try again. Info: " + error.toString());
+    DocumentApp.getUi().alert("API Error: " + error.message);
+    return null;
   }
 }
 
