@@ -1,5 +1,6 @@
 // Original copyright J. Grant, 2023, under Apache 2.0 license.
-// Forked and modified by Or Zelig, 2025. Modifications also under Apache 2.0 license.
+// Forked and modified by OOr Zelig, 2025 . Modifications also under Apache 2.0 license.
+
 // Original: https://github.com/jedediahg/GPTforGDocs
 // Fork: https://github.com/orzelig/GDocs-OpenAI
 // 
