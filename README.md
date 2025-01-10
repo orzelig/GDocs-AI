@@ -1,4 +1,4 @@
-# GPTforGDocs
+# GDocs-AI-Assistant
 ## AI Assistant for Google Docs
 This is a menu extension for Google Docs that integrates with OpenAI and X.AI models. Select text in your document and use AI to analyze, generate, or transform it in various ways.
 
