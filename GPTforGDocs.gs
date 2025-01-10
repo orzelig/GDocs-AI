@@ -10,24 +10,35 @@ function onOpen() {
   const openaiKey = properties.getProperty("OPENAI_API_KEY");
   const xaiKey = properties.getProperty("XAI_API_KEY");
   
+  // Create AI-Writer menu
   DocumentApp.getUi().createMenu("AI-Writer")
     .addSubMenu(DocumentApp.getUi().createMenu("Content Generation")
-      .addItem("Generate Essay", "generatePrompt")
-      .addItem("Continue Story", "continueThisStory")
-      .addItem("Continue Report", "continueThisDoc"))
+      .addItem("Continue this", "continueThis")
+      .addItem("Create 5 LinkedIn Posts", "generateLI")
+      .addItem("Create 5 Twitter Posts", "generateTweet")
+      .addItem("Write Email", "generateEmail")
+      .addItem("Generate Response", "generateResponse"))
     .addSubMenu(DocumentApp.getUi().createMenu("Analysis")
       .addItem("Summarize", "summarizeText")
       .addItem("Extract Keywords", "extractKeywords")
-      .addItem("Generate Key Points", "generateKeyPoints"))
-    .addSubMenu(DocumentApp.getUi().createMenu("Social Media")
-      .addItem("LinkedIn Posts", "generateLI")
-      .addItem("Twitter Posts", "generateTweet"))
-    .addSubMenu(DocumentApp.getUi().createMenu("Business")
-      .addItem("Write Email", "generateEmail")
-      .addItem("Generate Response", "generateResponse"))
+      .addItem("Generate Key Points", "generateKeyPoints")
+      .addSubMenu(DocumentApp.getUi().createMenu("Competitive Analysis")
+        .addItem("Generate Competitive Analysis", "generateCompetitiveAnalysis")
+        .addItem("Generate Structured Profile", "generateStructuredProfile")
+        .addItem("Create SWOT Analysis", "createSWOT")
+        .addItem("Generate Comparison Analysis", "generateComparison")))
+    .addSubMenu(DocumentApp.getUi().createMenu("Market Research")
+      .addItem("Analyze Market Segments", "analyzeMarketSegments")
+      .addItem("Analyze Market Trends", "analyzeMarketTrends")
+      .addItem("Generate Survey Questions", "generateSurveyQuestions")
+      .addSubMenu(DocumentApp.getUi().createMenu("Industry Analysis")
+        .addItem("Porter's Five Forces Analysis", "generatePortersAnalysis")
+        .addItem("BCG Matrix Analysis", "generateBCGMatrix")))
+    .addSubMenu(DocumentApp.getUi().createMenu("Reporting")
+      .addItem("Summarize Research Document", "summarizeResearch")
+      .addItem("Generate Recommendations", "generateRecommendations"))
     .addSeparator()
     .addItem("Custom Instruction", "customInstruction")
-    .addItem("Translate to English", "translateToEN")
     .addToUi();
 
   const settingsMenu = DocumentApp.getUi().createMenu("AI-settings")
@@ -89,28 +100,28 @@ function generateTweet() {
   );
 }
 
-function generatePrompt() {
-  handleContentGeneration(" ", "You will be paid for this. You are an expert academic writer who concisely puts ideas into words, explaining clearly and effectively. Please generate an essay on this topic: ", 2060);
-}
-
 function summarizeText() {
-  handleContentGeneration(" ", "You will be paid for this. You are an expert academic reviewer who can get to the heart of any matter and summarize with an efficiency of words. Please summarize this text in a single short paragraph: ", 200);
+  handleContentGeneration(
+    "Please summarize this text in a single short paragraph:",
+    "You are an expert academic reviewer who can get to the heart of any matter and summarize with an efficiency of words.",
+    200
+  );
 }
 
 function extractKeywords() {
-  handleContentGeneration(" ", "You will be paid for this. You are an expert academic reviewer who can get to the heart of any matter and summarize with an efficiency of words. Please extract the main keywords from this text and present them in a simple list organized by relevance: ", 200);
+  handleContentGeneration(
+    "Please extract the main keywords from this text and present them in a simple list organized by relevance:",
+    "You are an expert academic reviewer who can get to the heart of any matter and summarize with an efficiency of words.",
+    200
+  );
 }
 
 function generateKeyPoints() {
-  handleContentGeneration(" ", "You will be paid for this. You are an expert academic researcher. You can iterate on ideas and concisely explain them in clear words. Please write a list of key bulletpoints including important points that may be missing as well from the topic of this text: ", 1000);
-}
-
-function continueThisStory() {
-  handleContentGeneration(" ", "You will be paid for this. You are a creative writer. You craft exciting and gripping narratives about interesting characters in flowing prose that entrances and entices the reader. Continue this narrative: ", 1000);
-}
-
-function continueThisDoc() {
-  handleContentGeneration(" ", "You will be paid for this. You are an expert academic reviewer. You write concise and clear text with an efficiency of words. Continue this report: ", 1000);
+  handleContentGeneration(
+    "Please write a list of key bulletpoints including important points that may be missing from the topic of this text:",
+    "You are an expert academic researcher who can iterate on ideas and concisely explain them in clear words.",
+    1000
+  );
 }
 
 function generateEmail() {
@@ -119,10 +130,6 @@ function generateEmail() {
 
 function generateResponse() {
   handleContentGeneration(" ", "You will be paid for this. You are a know-it-all who loves to share detailed knowledge about any subject. You write very clearly with engaging topical sentence structures. Please write a professional response to this message: ", 1000);
-}
-
-function translateToEN() {
-  handleContentGeneration(" ", "You will be paid for this. You are a brilliant linguist capable of translating from any language into English. Please translate this text to English: ", 1000);
 }
 
 function customInstruction() {
@@ -419,4 +426,101 @@ function handleContentGeneration(promptTemplate, newInstruction, maxTokens) {
     Logger.log("Error: " + error.toString());
     DocumentApp.getUi().alert("An error occurred: " + error.message);
   }
+}
+
+// New handler functions for the added menu items
+function continueThis() {
+  handleContentGeneration(
+    "Please continue this text in the same style and tone:",
+    "You are an expert writer who can seamlessly continue any type of content while maintaining consistency in style, tone, and context.",
+    1000
+  );
+}
+
+function generateCompetitiveAnalysis() {
+  handleContentGeneration(
+    "Please generate a detailed competitive analysis based on this information:",
+    "You are a strategic business analyst specializing in competitive analysis. Create a comprehensive analysis that identifies key competitive factors, market positioning, and strategic implications.",
+    2000
+  );
+}
+
+function generateStructuredProfile() {
+  handleContentGeneration(
+    "Please generate a structured profile based on this data:",
+    "You are a business analyst who excels at organizing and presenting information in clear, structured profiles. Create a comprehensive profile that highlights key characteristics, strengths, and notable features.",
+    1500
+  );
+}
+
+function createSWOT() {
+  handleContentGeneration(
+    "Please create a SWOT analysis based on this information:",
+    "You are a strategic analyst specializing in SWOT analysis. Create a comprehensive analysis of Strengths, Weaknesses, Opportunities, and Threats, providing detailed insights for each category.",
+    2000
+  );
+}
+
+function generateComparison() {
+  handleContentGeneration(
+    "Please generate a side-by-side comparison analysis based on this information:",
+    "You are an analytical expert who excels at comparative analysis. Create a detailed, structured comparison that highlights key differences and similarities across multiple dimensions.",
+    2000
+  );
+}
+
+function analyzeMarketSegments() {
+  handleContentGeneration(
+    "Please analyze and segment the market based on this data:",
+    "You are a market research expert specializing in market segmentation. Analyze the data to identify distinct market segments and their characteristics.",
+    2000
+  );
+}
+
+function analyzeMarketTrends() {
+  handleContentGeneration(
+    "Please analyze the market trends from this dataset:",
+    "You are a market analyst expert in identifying and analyzing trends. Examine the data to identify key trends, patterns, and their implications.",
+    2000
+  );
+}
+
+function generateSurveyQuestions() {
+  handleContentGeneration(
+    "Please create relevant survey questions based on this research objective:",
+    "You are a market research expert specializing in survey design. Create clear, unbiased, and effective questions that will gather the needed information.",
+    1500
+  );
+}
+
+function generatePortersAnalysis() {
+  handleContentGeneration(
+    "Please generate a Porter's Five Forces analysis based on this industry information:",
+    "You are a strategic analyst specializing in Porter's Five Forces framework. Create a comprehensive analysis of competitive forces affecting the industry.",
+    2000
+  );
+}
+
+function generateBCGMatrix() {
+  handleContentGeneration(
+    "Please create a BCG matrix analysis based on this product portfolio information:",
+    "You are a portfolio strategy expert specializing in BCG matrix analysis. Analyze the products/services and categorize them appropriately with detailed justification.",
+    2000
+  );
+}
+
+function summarizeResearch() {
+  handleContentGeneration(
+    "Please create a concise summary of this research document:",
+    "You are a research analyst who excels at distilling complex documents into clear, concise summaries while retaining key information and insights.",
+    1500
+  );
+}
+
+function generateRecommendations() {
+  handleContentGeneration(
+    "Please generate data-driven recommendations based on this analysis:",
+    "You are a strategic consultant who excels at developing actionable recommendations based on analytical insights. Create clear, justified recommendations with supporting rationale.",
+    2000
+  );
 } 
