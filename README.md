@@ -1,49 +1,78 @@
 # GPTforGDocs
-## Open AI assistant for Google Docs
-This is a simple menu extension for Google Docs. With it you can select elements in the docs that contain text and have GPT take action on it. 
+## AI Assistant for Google Docs
+This is a menu extension for Google Docs that integrates with OpenAI and X.AI models. Select text in your document and use AI to analyze, generate, or transform it in various ways.
 
 ## Installation
-To install, simply open a Google Doc and go to *Extensions->Apps Script*. Paste the script into the editor and save. Reload your document. You can also deploy this as an add-on to make it available in all your Google docs.
+1. Open a Google Doc and go to *Extensions->Apps Script*
+2. Paste the script into the editor and save
+3. Reload your document
+4. Set up your API key(s) using the AI-settings menu
 
-## Models and Pricing
-The following models are available:
-- GPT-4o Mini 
-- GPT-4o 
-- O1 Mini 
-- O1 
+You can also deploy this as an add-on to make it available in all your Google docs.
 
-## Usage
-Once installed, you will find a ChatGPT menu with several items organized into categories:
+## Available AI Providers
+- OpenAI Models:
+  - GPT-4o Mini 
+  - GPT-4o 
+  - O1 Mini 
+  - O1 
+- X.AI Models:
+  - Grok-2
 
-### Content Generation
-- *Generate Essay* - Write an essay about the topic of the selected text
-- *Continue Story* - Continue telling a story based on the initial selected text
-- *Continue Report* - Continue writing a report based on the initial selected text
+## Features
+The extension adds two menus to your Google Docs:
 
-### Analysis
-- *Summarize* - Create a summary paragraph of the selected text
-- *Extract Keywords* - Create a list of keywords in the selected text
-- *Generate Key Points* - Generate a set of bullet points based on the selected text
+### AI-Writer Menu
+#### Content Generation
+- *Continue this* - Seamlessly continue writing in the same style and tone
+- *Create 5 LinkedIn Posts* - Generate professional social media content
+- *Create 5 Twitter Posts* - Create engaging tweets
+- *Write Email* - Generate professional emails
+- *Generate Response* - Create well-structured responses
 
-### Social Media
-- *LinkedIn Posts* - Generate LinkedIn posts that could be used to promote the idea in the selected text
-- *Twitter Posts* - Generate Tweets that could be used to promote the idea in the selected text
+#### Analysis
+- *Summarize* - Create a concise summary
+- *Extract Keywords* - List key terms by relevance
+- *Generate Key Points* - Create comprehensive bullet points
+- *Competitive Analysis*
+  - Generate Competitive Analysis
+  - Generate Structured Profile
+  - Create SWOT Analysis
+  - Generate Comparison Analysis
 
-### Business
-- *Write Email* - Generate a professional email based on the selected text
-- *Generate Response* - Create a response to the selected text
+#### Market Research
+- *Analyze Market Segments*
+- *Analyze Market Trends*
+- *Generate Survey Questions*
+- *Industry Analysis*
+  - Porter's Five Forces Analysis
+  - BCG Matrix Analysis
 
-### Other Features
-- *Translate to English* - Translate the selected text to English
-- *Set API Key* - Configure your OpenAI API key
-- *Set AI Model* - Choose between available AI models
-- *Help* - View usage instructions
+#### Reporting
+- *Summarize Research Document*
+- *Generate Recommendations*
 
-Generated text is inserted immediately after the selected text. If this doesn't happen, check the start of the document.
+#### Custom
+- *Custom Instruction* - Use your own AI instructions
+
+### AI-settings Menu
+- Display current active model
+- Set API keys (OpenAI and/or X.AI)
+- Select AI model
+- Delete API keys
 
 ## Setup
-1. Set your OpenAI API key using the "Set API Key" menu option
-2. (Optional) Choose your preferred model using "Set AI Model" - GPT-4o Mini is the default
+1. Click the AI-settings menu
+2. Set your API key(s):
+   - OpenAI API key for OpenAI models
+   - X.AI API key for X.AI models
+3. Select your preferred AI model
+4. Start using the AI-Writer features!
+
+## Usage
+1. Select text in your document
+2. Choose an action from the AI-Writer menu
+3. Generated content will be inserted after your selection
 
 ## Credits
 Original by J. Grant, 2023
