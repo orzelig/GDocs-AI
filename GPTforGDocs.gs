@@ -18,21 +18,16 @@ const AVAILABLE_MODELS = {
     "O1": "o1"
   },
   XAI: {
-    "Grok-2": "grok-2-latest"
+    "Grok-2": "grok-2"
   }
 };
 
 // 1. Core Setup and Menu Creation
 function onOpen() {
-  Logger.log("Starting onOpen()");
   const currentModel = getCurrentModelInfo();
   const properties = PropertiesService.getUserProperties();
   const openaiKey = properties.getProperty("OPENAI_API_KEY");
   const xaiKey = properties.getProperty("XAI_API_KEY");
-  
-  Logger.log("Current model: " + currentModel);
-  Logger.log("OpenAI key exists: " + !!openaiKey);
-  Logger.log("XAI key exists: " + !!xaiKey);
 
   // Create AI-Writer menu
   DocumentApp.getUi().createMenu("AI-Writer")
@@ -65,112 +60,71 @@ function onOpen() {
     .addItem("Custom Instruction", "customInstruction")
     .addToUi();
 
-  // Create settings menu step by step
   const ui = DocumentApp.getUi();
   const settingsMenu = ui.createMenu("AI-settings");
-  
-  // Add current model display
-  settingsMenu.addItem(`Active: ${currentModel}`, "displayModelConfiguration");
-  Logger.log("Added model display");
 
-  // Add API key submenu if needed
-  if (!openaiKey || !xaiKey) {
+  function addApiKeySubMenu() {
     const apiKeyMenu = ui.createMenu("Set API Key");
-    if (!openaiKey) {
-      apiKeyMenu.addItem("Set OpenAI API Key", "setAPIkey_OPENAI");
-    }
-    if (!xaiKey) {
-      apiKeyMenu.addItem("Set XAI API Key", "setAPIkey_XAI"); 
-    }
+    if (!openaiKey) apiKeyMenu.addItem("Set OpenAI API Key", "setAPIkey_OPENAI");
+    if (!xaiKey) apiKeyMenu.addItem("Set XAI API Key", "setAPIkey_XAI");
     settingsMenu.addSubMenu(apiKeyMenu);
-    Logger.log("Added API key submenu");
   }
 
-  // Only create model menu if we have at least one API key
-  if (openaiKey || xaiKey) {
-    // Create model selection menu
+  function addModelSubMenu() {
     const modelMenu = ui.createMenu("Set AI Model");
-    
-    // Add OpenAI models
     if (openaiKey) {
       Object.entries(AVAILABLE_MODELS.OPENAI).forEach(([name, id]) => {
-        const functionName = `setModel_${id.replace(/[-\.]/g, '_')}`;
-        modelMenu.addItem(`${name} (OpenAI)`, functionName);
+        modelMenu.addItem(`${name} (OpenAI)`, `setModel_${id.replace(/[-\.]/g, '_')}`);
       });
-      Logger.log("Added OpenAI models");
     }
-    
-    // Add XAI models
     if (xaiKey) {
       if (openaiKey) modelMenu.addSeparator();
       Object.entries(AVAILABLE_MODELS.XAI).forEach(([name, id]) => {
-        const functionName = `setModel_${id.replace(/[-\.]/g, '_')}`;
-        modelMenu.addItem(`${name} (X.AI)`, functionName);
+        modelMenu.addItem(`${name} (X.AI)`, `setModel_${id.replace(/[-\.]/g, '_')}`);
       });
-      Logger.log("Added XAI models");
     }
-
-    // Add model menu to settings menu
     settingsMenu.addSubMenu(modelMenu);
   }
 
-  // Finalize settings menu
-  settingsMenu
-    .addSeparator()
-    .addItem("Delete All API Keys", "deleteAllKeys")
-    .addToUi();
-  
-  Logger.log("Finished creating all menus");
+  settingsMenu.addItem(`Active: ${currentModel}`, "displayModelConfiguration");
+
+  if (!openaiKey || !xaiKey) addApiKeySubMenu();
+  if (openaiKey || xaiKey) addModelSubMenu();
+
+  settingsMenu.addSeparator()
+              .addItem("Delete All API Keys", "deleteAllKeys")
+              .addToUi();
 }
 
 // 2. API Key Management Functions
 function setAPIkey(provider) {
-  try {
-    const ui = DocumentApp.getUi();
-    const keyResponse = ui.prompt(
-      `Set your ${provider} API Key`,
-      'Please enter your API Key:',
-      ui.ButtonSet.OK_CANCEL
-    );
+  const ui = DocumentApp.getUi();
+  const keyResponse = ui.prompt(`Set your ${provider} API Key`, 'Please enter your API Key:', ui.ButtonSet.OK_CANCEL);
 
-    if (keyResponse.getSelectedButton() == ui.Button.OK) {
-      const apiKey = keyResponse.getResponseText().trim();
-      if (apiKey) {
-        const propertyName = provider + "_API_KEY";
-        PropertiesService.getUserProperties().setProperty(propertyName, apiKey);
-        ui.alert(`${provider} API Key set successfully.`);
-        // Refresh the menu to update API key status
-        onOpen();
-      } else {
-        ui.alert('No API Key entered.');
-      }
-    }
-  } catch(err) {
-    Logger.log('Error setting API key: ' + err.toString());
-    DocumentApp.getUi().alert('Error setting API key: ' + err.toString());
-  }
+  if (keyResponse.getSelectedButton() !== ui.Button.OK) return;
+
+  const apiKey = keyResponse.getResponseText().trim();
+  if (!apiKey) return ui.alert('No API Key entered.');
+
+  PropertiesService.getUserProperties().setProperty(provider + "_API_KEY", apiKey);
+  ui.alert(`${provider} API Key set successfully.`);
+  onOpen();
 }
 
 function setAPIkey_OPENAI() { setAPIkey("OPENAI"); }
 function setAPIkey_XAI() { setAPIkey("XAI"); }
 function deleteAllKeys() {
   const ui = DocumentApp.getUi();
-  const response = ui.alert(
-    'Delete All API Keys',
-    'Are you sure you want to delete all stored API keys? This action cannot be undone.',
-    ui.ButtonSet.YES_NO
-  );
+  if (ui.alert('Delete All API Keys', 
+               'Are you sure you want to delete all stored API keys? This action cannot be undone.',
+               ui.ButtonSet.YES_NO) !== ui.Button.YES) return;
   
-  if (response === ui.Button.YES) {
-    const properties = PropertiesService.getUserProperties();
-    properties.deleteProperty("OPENAI_API_KEY");
-    properties.deleteProperty("XAI_API_KEY");
-    properties.deleteProperty("CURRENT_PROVIDER");
-    properties.deleteProperty("CURRENT_MODEL");
-    
-    ui.alert('All API keys have been deleted successfully.');
-    onOpen();
-  }
+  const props = PropertiesService.getUserProperties();
+  ['OPENAI_API_KEY', 'XAI_API_KEY', 'CURRENT_PROVIDER', 'CURRENT_MODEL']
+    .forEach(key => props.deleteProperty(key));
+  
+  ui.alert('All API keys have been deleted successfully.');
+  onOpen();
 }
 
 // 3. Model Management Functions
@@ -185,7 +139,6 @@ function setModel(provider, modelId) {
     );
     onOpen();
   } catch(err) {
-    Logger.log(err);
     DocumentApp.getUi().alert('Error setting model: ' + err.toString());
   }
 }
@@ -194,67 +147,59 @@ function setModel_gpt_4o_mini() { setModel("OPENAI", "gpt-4o-mini"); }
 function setModel_gpt_4o() { setModel("OPENAI", "gpt-4o"); }
 function setModel_o1_mini() { setModel("OPENAI", "o1-mini"); }
 function setModel_o1() { setModel("OPENAI", "o1"); }
-function setModel_grok_2_latest() { setModel("XAI", "grok-2-latest"); }
+function setModel_grok_2() { setModel("XAI", "grok-2-latest"); }
 
 function displayModelConfiguration() {
-  const ui = DocumentApp.getUi(); // Get document UI interface
-  const properties = PropertiesService.getUserProperties(); // Access user's stored properties
+  const ui = DocumentApp.getUi();
+  const props = PropertiesService.getUserProperties();
   
-  const openaiKey = properties.getProperty("OPENAI_API_KEY"); // Get OpenAI API key if exists
-  const xaiKey = properties.getProperty("XAI_API_KEY"); // Get X.AI API key if exists
-  const provider = properties.getProperty("CURRENT_PROVIDER"); // Get current AI provider
-  const modelId = properties.getProperty("CURRENT_MODEL"); // Get current model ID
+  const hasOpenAI = !!props.getProperty("OPENAI_API_KEY");
+  const hasXAI = !!props.getProperty("XAI_API_KEY");
+  const provider = props.getProperty("CURRENT_PROVIDER");
+  const model = props.getProperty("CURRENT_MODEL");
 
-  let message = "API Keys Setup:\n"; // Initialize status message
-  message += `OpenAI: ${openaiKey ? "✓" : "✗"}\n`; // Show checkmark if OpenAI key exists
-  message += `X.AI: ${xaiKey ? "✓" : "✗"}\n\n`; // Show checkmark if X.AI key exists
-  message += "Current Model:\n"; // Add model section header
+  const message = [
+    "API Keys Setup:",
+    `OpenAI: ${hasOpenAI ? "✓" : "✗"}`,
+    `X.AI: ${hasXAI ? "✓" : "✗"}`,
+    "",
+    "Current Model:",
+    (!provider || !model) 
+      ? "No model configured yet. Please set up a model in AI-settings."
+      : `Provider: ${provider}\nModel: ${model}`
+  ].join("\n");
   
-  if (!provider || !modelId) { // Check if model is configured
-    message += "No model configured yet. Please set up a model in AI-settings.";
-  } else {
-    message += `Provider: ${provider}\n`; // Display current provider
-    message += `Model: ${modelId}`; // Display current model
-  }
-  
-  ui.alert( // Show configuration popup
-    'Model Configuration Information',
-    message,
-    ui.ButtonSet.OK
-  );
+  ui.alert('Model Configuration Information', message, ui.ButtonSet.OK);
 }
 
 // 4. Content Generation Functions
 function continueThis() {
-  handleContentGeneration(
-    "Please continue this text in the same style and tone:",
+  handleContentGeneration(" ",
     "You are an expert writer who can seamlessly continue any type of content while maintaining consistency in style, tone, and context.",
     1000
   );
 }
 
 function generateLI() {
-  handleContentGeneration(
-    "Please write 5 engaging LinkedIn posts about this topic. Focus on creating professional, thought-provoking content that encourages discussion.",
-    "You are an experienced social media manager specializing in LinkedIn content. You create engaging, professional posts that drive meaningful engagement.",
+  handleContentGeneration(" ",
+    "You are an experienced social media manager specializing in LinkedIn content. You create engaging, professional posts that drive meaningful engagement. Please write 5 engaging LinkedIn posts about this topic. Focus on creating professional, thought-provoking content that encourages discussion.",
     500
   );
 }
 
 function generateTweet() {
-  handleContentGeneration(
-    "Please write 5 engaging tweets about this topic. Make them concise, engaging, and shareable.",
-    "You are a social media expert who creates viral, engaging content while maintaining professionalism and accuracy.",
+  handleContentGeneration(" ",
+    "You are a social media expert who creates viral, engaging content while maintaining professionalism and accuracy. Please write 5 engaging tweets about this topic. Make them concise, engaging, and shareable.",
     500
   );
 }
 
 function generateEmail() {
-  handleContentGeneration(" ", "You will be paid for this. You are a know-it-all who loves to share detailed knowledge about any subject. You write very clearly with engaging topical sentence structures. Please write a professional email explaining this: ", 1000);
+  handleContentGeneration(" ", "You are an expert business communicator who writes clear, engaging emails that effectively convey information. Please write a professional email explaining this:", 1000);
 }
 
 function generateResponse() {
-  handleContentGeneration(" ", "You will be paid for this. You are a know-it-all who loves to share detailed knowledge about any subject. You write very clearly with engaging topical sentence structures. Please write a professional response to this message: ", 1000);
+  handleContentGeneration(" ", "You are an expert communicator who crafts clear, thoughtful, and well-structured responses. Please write a professional response to this message:", 1000);
 }
 
 function customInstruction() {
@@ -268,11 +213,7 @@ function customInstruction() {
   if (response.getSelectedButton() == ui.Button.OK) {
     const instruction = response.getResponseText();
     if (instruction) {
-      handleContentGeneration(
-        "Please process the following text according to the custom instruction:",
-        instruction,
-        1000
-      );
+      handleContentGeneration(" ", instruction, 1000);
     } else {
       ui.alert('No instruction provided.');
     }
@@ -281,117 +222,103 @@ function customInstruction() {
 
 // 5. Analysis Functions
 function summarizeText() {
-  handleContentGeneration(
-    "Please summarize this text in a single short paragraph:",
-    "You are an expert academic reviewer who can get to the heart of any matter and summarize with an efficiency of words.",
+  handleContentGeneration(" ",
+    "You are an expert academic reviewer who can get to the heart of any matter and summarize with an efficiency of words. Please summarize this text in a single short paragraph.",
     200
   );
 }
 
 function extractKeywords() {
-  handleContentGeneration(
-    "Please extract the main keywords from this text and present them in a simple list organized by relevance:",
-    "You are an expert academic reviewer who can get to the heart of any matter and summarize with an efficiency of words.",
+  handleContentGeneration(" ",
+    "You are an expert academic reviewer who can get to the heart of any matter and summarize with an efficiency of words. Please extract the main keywords from this text and present them in a simple list organized by relevance.",
     200
   );
 }
 
 function generateKeyPoints() {
-  handleContentGeneration(
-    "Please write a list of key bulletpoints including important points that may be missing from the topic of this text:",
-    "You are an expert academic researcher who can iterate on ideas and concisely explain them in clear words.",
+  handleContentGeneration(" ",
+    "You are an expert academic researcher who can iterate on ideas and concisely explain them in clear words. Please write a list of key bulletpoints including important points that may be missing from the topic of this text.",
     1000
   );
 }
 
 // 6. Competitive Analysis Functions
 function generateCompetitiveAnalysis() {
-  handleContentGeneration(
-    "Please generate a detailed competitive analysis based on this information:",
-    "You are a strategic business analyst specializing in competitive analysis. Create a comprehensive analysis that identifies key competitive factors, market positioning, and strategic implications.",
+  handleContentGeneration(" ",
+    "You are a strategic business analyst specializing in competitive analysis. Create a comprehensive analysis that identifies key competitive factors, market positioning, and strategic implications based on this information.",
     2000
   );
 }
 
 function generateStructuredProfile() {
-  handleContentGeneration(
-    "Please generate a structured profile based on this data:",
-    "You are a business analyst who excels at organizing and presenting information in clear, structured profiles. Create a comprehensive profile that highlights key characteristics, strengths, and notable features.",
+  handleContentGeneration(" ",
+    "You are a business analyst who excels at organizing and presenting information in clear, structured profiles. Create a comprehensive profile that highlights key characteristics, strengths, and notable features based on this data.",
     1500
   );
 }
 
 function createSWOT() {
-  handleContentGeneration(
-    "Please create a SWOT analysis based on this information:",
-    "You are a strategic analyst specializing in SWOT analysis. Create a comprehensive analysis of Strengths, Weaknesses, Opportunities, and Threats, providing detailed insights for each category.",
+  handleContentGeneration(" ",
+    "You are a strategic analyst specializing in SWOT analysis. Create a comprehensive analysis of Strengths, Weaknesses, Opportunities, and Threats, providing detailed insights for each category based on this information.",
     2000
   );
 }
 
 function generateComparison() {
-  handleContentGeneration(
-    "Please generate a side-by-side comparison analysis based on this information:",
-    "You are an analytical expert who excels at comparative analysis. Create a detailed, structured comparison that highlights key differences and similarities across multiple dimensions.",
+  handleContentGeneration(" ",
+    "You are an analytical expert who excels at comparative analysis. Create a detailed, structured comparison that highlights key differences and similarities across multiple dimensions based on this information.",
     2000
   );
 }
 
 // 7. Market Research Functions
 function analyzeMarketSegments() {
-  handleContentGeneration(
-    "Please analyze and segment the market based on this data:",
+  handleContentGeneration(" ",
     "You are a market research expert specializing in market segmentation. Analyze the data to identify distinct market segments and their characteristics.",
     2000
   );
 }
 
 function analyzeMarketTrends() {
-  handleContentGeneration(
-    "Please analyze the market trends from this dataset:",
+  handleContentGeneration(" ",
     "You are a market analyst expert in identifying and analyzing trends. Examine the data to identify key trends, patterns, and their implications.",
     2000
   );
 }
 
 function generateSurveyQuestions() {
-  handleContentGeneration(
-    "Please create relevant survey questions based on this research objective:",
-    "You are a market research expert specializing in survey design. Create clear, unbiased, and effective questions that will gather the needed information.",
+  handleContentGeneration(" ",
+    "You are a market research expert specializing in survey design. Create clear, unbiased, and effective questions that will gather the needed information based on this research objective.",
     1500
   );
 }
 
 // 8. Industry Analysis Functions
 function generatePortersAnalysis() {
-  handleContentGeneration(
-    "Please generate a Porter's Five Forces analysis based on this industry information:",
-    "You are a strategic analyst specializing in Porter's Five Forces framework. Create a comprehensive analysis of competitive forces affecting the industry.",
+  handleContentGeneration(" ",
+    "You are a strategic analyst specializing in Porter's Five Forces framework. Create a comprehensive analysis of competitive forces affecting the industry based on this information.",
     2000
   );
 }
 
 function generateBCGMatrix() {
-  handleContentGeneration(
-    "Please create a BCG matrix analysis based on this product portfolio information:",
-    "You are a portfolio strategy expert specializing in BCG matrix analysis. Analyze the products/services and categorize them appropriately with detailed justification.",
+  handleContentGeneration(" ",
+    "You are a portfolio strategy expert specializing in BCG matrix analysis. Analyze the products/services and categorize them appropriately with detailed justification based on this portfolio information.",
     2000
   );
 }
 
 // 9. Reporting Functions
 function summarizeResearch() {
-  handleContentGeneration(
-    "Please create a concise summary of this research document:",
-    "You are a research analyst who excels at distilling complex documents into clear, concise summaries while retaining key information and insights.",
+  handleContentGeneration(" ",
+    "You are a research analyst who excels at distilling complex documents into clear, concise summaries while retaining key information and insights. Please create a concise summary of this research document.",
     1500
   );
 }
 
 function generateRecommendations() {
-  handleContentGeneration(
-    "Please generate data-driven recommendations based on this analysis:",
-    "You are a strategic consultant who excels at developing actionable recommendations based on analytical insights. Create clear, justified recommendations with supporting rationale.",
+  handleContentGeneration(" ",
+    "You are a strategic consultant who excels at developing actionable recommendations based on analytical insights. Create clear, justified recommendations with supporting rationale based on this analysis.",
     2000
   );
 }
@@ -488,7 +415,7 @@ function getCurrentModelInfo() {
   return `${modelName} (${provider})`;
 }
 
-function handleContentGeneration(promptTemplate, newInstruction, maxTokens) {
+function handleContentGeneration(_, instruction, maxTokens) {
   try {
     const doc = DocumentApp.getActiveDocument();
     const selection = doc.getSelection();
@@ -505,11 +432,11 @@ function handleContentGeneration(promptTemplate, newInstruction, maxTokens) {
     const messages = [
       {
         role: "system",
-        content: newInstruction || "You are a helpful content writer."
+        content: instruction || "You are a helpful content writer."
       },
       {
         role: "user",
-        content: `${promptTemplate}\n\nText to process:\n${selectedText}`
+        content: `Text to process:\n${selectedText}`
       }
     ];
 
@@ -521,7 +448,6 @@ function handleContentGeneration(promptTemplate, newInstruction, maxTokens) {
     const insertIndex = parent.getChildIndex(lastElement.getElement()) + 1;
     doc.getBody().insertParagraph(insertIndex, generatedText);
   } catch (error) {
-    Logger.log("Error: " + error.toString());
     DocumentApp.getUi().alert("An error occurred: " + error.message);
   }
 } 
