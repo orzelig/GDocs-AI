@@ -6,6 +6,9 @@
 
 function onOpen() {
   const currentModel = getCurrentModelInfo();
+  const properties = PropertiesService.getUserProperties();
+  const openaiKey = properties.getProperty("OPENAI_API_KEY");
+  const xaiKey = properties.getProperty("XAI_API_KEY");
   
   DocumentApp.getUi().createMenu("AI-Writer")
     .addSubMenu(DocumentApp.getUi().createMenu("Content Generation")
@@ -27,10 +30,43 @@ function onOpen() {
     .addItem("Translate to English", "translateToEN")
     .addToUi();
 
-  DocumentApp.getUi().createMenu("AI-settings")
-    .addItem(`Active: ${currentModel}`, "showModelInfo")
-    .addItem("Set API Key", "setApiKey")
-    .addItem("Set AI Model", "setAIModel")
+  const settingsMenu = DocumentApp.getUi().createMenu("AI-settings")
+    .addItem(`Active: ${currentModel}`, "displayModelConfiguration");
+  
+  // Add API key menu if either key is missing
+  if (!openaiKey || !xaiKey) {
+    const apiKeyMenu = DocumentApp.getUi().createMenu("Set API Key");
+    if (!openaiKey) {
+      apiKeyMenu.addItem("Set OpenAI API Key", "setAPIkey_OPENAI");
+    }
+    if (!xaiKey) {
+      apiKeyMenu.addItem("Set XAI API Key", "setAPIkey_XAI"); 
+    }
+    settingsMenu.addSubMenu(apiKeyMenu);
+  }
+  
+  // Create model selection submenu
+  const modelMenu = DocumentApp.getUi().createMenu("Set AI Model");
+  
+  // Add OpenAI models if API key exists
+  if (openaiKey) {
+    Object.entries(AVAILABLE_MODELS.OPENAI).forEach(([name, id]) => {
+      const functionName = `setModel_${id.replace(/[-\.]/g, '_')}`;
+      modelMenu.addItem(`${name} (OpenAI)`, functionName);
+    });
+  }
+  
+  // Add XAI models if API key exists
+  if (xaiKey) {
+    if (openaiKey) modelMenu.addSeparator(); // Add separator if both providers present
+    Object.entries(AVAILABLE_MODELS.XAI).forEach(([name, id]) => {
+      const functionName = `setModel_${id.replace(/[-\.]/g, '_')}`;
+      modelMenu.addItem(`${name} (X.AI)`, functionName);
+    });
+  }
+  
+  settingsMenu
+    .addSubMenu(modelMenu)
     .addSeparator()
     .addItem("Delete All API Keys", "deleteAllKeys")
     .addToUi();
@@ -111,97 +147,81 @@ function customInstruction() {
   }
 }
 
-function setApiKey() {
+function setAPIkey(provider) {
   try {
     const ui = DocumentApp.getUi();
-    const response = ui.alert('API Key Setup',
-      'Would you like to set up OpenAI or X.AI key?\n\nClick YES for OpenAI\nClick NO for X.AI',
-      ui.ButtonSet.YES_NO_CANCEL);
-
-    if (response === ui.Button.CANCEL) return;
-    
-    const provider = response === ui.Button.YES ? "OPENAI" : "XAI";
-    const keyResponse = ui.prompt(`Set your ${provider} API Key`, 'Please enter your API Key:', ui.ButtonSet.OK_CANCEL);
+    const keyResponse = ui.prompt(
+      `Set your ${provider} API Key`,
+      'Please enter your API Key:',
+      ui.ButtonSet.OK_CANCEL
+    );
 
     if (keyResponse.getSelectedButton() == ui.Button.OK) {
-      const apiKey = keyResponse.getResponseText();
+      const apiKey = keyResponse.getResponseText().trim();
       if (apiKey) {
-        PropertiesService.getUserProperties().setProperty(`${provider}_API_KEY`, apiKey);
+        const propertyName = provider + "_API_KEY";
+        PropertiesService.getUserProperties().setProperty(propertyName, apiKey);
         ui.alert(`${provider} API Key set successfully.`);
+        // Refresh the menu to update API key status
+        onOpen();
       } else {
         ui.alert('No API Key entered.');
       }
     }
   } catch(err) {
-    Logger.log(err);
+    Logger.log('Error setting API key: ' + err.toString());
+    DocumentApp.getUi().alert('Error setting API key: ' + err.toString());
   }
 }
 
-function setAIModel() {
+// Add helper function to set model
+function setModel(provider, modelId) {
   try {
-    const ui = DocumentApp.getUi();
+    const properties = PropertiesService.getUserProperties();
+    properties.setProperty("CURRENT_PROVIDER", provider);
+    properties.setProperty("CURRENT_MODEL", modelId);
     
-    const openaiKey = PropertiesService.getUserProperties().getProperty("OPENAI_API_KEY");
-    const xaiKey = PropertiesService.getUserProperties().getProperty("XAI_API_KEY");
-    
-    let modelOptions = "";
-    let counter = 1;
-    let allModels = [];
-    
-    if (openaiKey) {
-      Object.entries(AVAILABLE_MODELS.OPENAI).forEach(([name, id]) => {
-        modelOptions += `${counter}. ${name} (OpenAI)\n`;
-        allModels.push({ provider: "OPENAI", id: id });
-        counter++;
-      });
-    }
-    
-    if (xaiKey) {
-      Object.entries(AVAILABLE_MODELS.XAI).forEach(([name, id]) => {
-        modelOptions += `${counter}. ${name} (X.AI)\n`;
-        allModels.push({ provider: "XAI", id: id });
-        counter++;
-      });
-    }
-    
-    if (!modelOptions) {
-      ui.alert('Please set up at least one API key first.');
-      return;
-    }
-
-    const response = ui.prompt(
-      'Select AI Model',
-      'Enter model number:\n' + modelOptions,
-      ui.ButtonSet.OK_CANCEL
+    DocumentApp.getUi().alert(
+      `AI Model set successfully to ${modelId} using ${provider}`
     );
-
-    if (response.getSelectedButton() == ui.Button.OK) {
-      const selection = parseInt(response.getResponseText()) - 1;
-      
-      if (selection >= 0 && selection < allModels.length) {
-        const selectedModel = allModels[selection];
-        PropertiesService.getUserProperties().setProperty("CURRENT_PROVIDER", selectedModel.provider);
-        PropertiesService.getUserProperties().setProperty("CURRENT_MODEL", selectedModel.id);
-        ui.alert(`AI Model set successfully to ${selectedModel.id} using ${selectedModel.provider}`);
-        onOpen();
-      } else {
-        ui.alert('Invalid selection.');
-      }
-    }
+    onOpen();
   } catch(err) {
     Logger.log(err);
     DocumentApp.getUi().alert('Error setting model: ' + err.toString());
   }
 }
 
-function showModelInfo() {
-  const ui = DocumentApp.getUi();
-  const provider = PropertiesService.getUserProperties().getProperty("CURRENT_PROVIDER") || "OPENAI";
-  const modelId = PropertiesService.getUserProperties().getProperty("CURRENT_MODEL") || "gpt-4o-mini";
+// Generate setter functions for each model
+function setModel_gpt_4o_mini() { setModel("OPENAI", "gpt-4o-mini"); }
+function setModel_gpt_4o() { setModel("OPENAI", "gpt-4o"); }
+function setModel_o1_mini() { setModel("OPENAI", "o1-mini"); }
+function setModel_o1() { setModel("OPENAI", "o1"); }
+function setModel_grok_2_latest() { setModel("XAI", "grok-2-latest"); }
+
+function displayModelConfiguration() {
+  const ui = DocumentApp.getUi(); // Get document UI interface
+  const properties = PropertiesService.getUserProperties(); // Access user's stored properties
   
-  ui.alert(
-    'Current Model Information',
-    `Provider: ${provider}\nModel: ${modelId}`,
+  const openaiKey = properties.getProperty("OPENAI_API_KEY"); // Get OpenAI API key if exists
+  const xaiKey = properties.getProperty("XAI_API_KEY"); // Get X.AI API key if exists
+  const provider = properties.getProperty("CURRENT_PROVIDER"); // Get current AI provider
+  const modelId = properties.getProperty("CURRENT_MODEL"); // Get current model ID
+
+  let message = "API Keys Setup:\n"; // Initialize status message
+  message += `OpenAI: ${openaiKey ? "✓" : "✗"}\n`; // Show checkmark if OpenAI key exists
+  message += `X.AI: ${xaiKey ? "✓" : "✗"}\n\n`; // Show checkmark if X.AI key exists
+  message += "Current Model:\n"; // Add model section header
+  
+  if (!provider || !modelId) { // Check if model is configured
+    message += "No model configured yet. Please set up a model in AI-settings.";
+  } else {
+    message += `Provider: ${provider}\n`; // Display current provider
+    message += `Model: ${modelId}`; // Display current model
+  }
+  
+  ui.alert( // Show configuration popup
+    'Model Configuration Information',
+    message,
     ui.ButtonSet.OK
   );
 }
@@ -225,6 +245,10 @@ function deleteAllKeys() {
     onOpen();
   }
 }
+
+// Add these two new wrapper functions
+function setAPIkey_OPENAI() { setAPIkey("OPENAI"); }
+function setAPIkey_XAI() { setAPIkey("XAI"); }
 
 /////// only utils below ///////
 
@@ -327,17 +351,29 @@ function getGPTcontent(messages, maxTokens) {
  * @returns {string} Display name in format "Model Name (Provider)"
  */
 function getCurrentModelInfo() {
-  const provider = PropertiesService.getUserProperties().getProperty("CURRENT_PROVIDER") || "OPENAI";
-  const modelId = PropertiesService.getUserProperties().getProperty("CURRENT_MODEL") || "gpt-4o-mini";
-  
+  const properties = PropertiesService.getUserProperties();
+  const provider = properties.getProperty("CURRENT_PROVIDER");
+  const modelId = properties.getProperty("CURRENT_MODEL");
+
+  // If no provider or model configured yet
+  if (!provider || !modelId) {
+    return "No model configured";
+  }
+
+  // Verify provider exists in available models
+  if (!AVAILABLE_MODELS[provider]) {
+    return "Invalid provider configured";
+  }
+
   let modelName = modelId;
+  // Look up friendly model name
   for (const [name, id] of Object.entries(AVAILABLE_MODELS[provider])) {
     if (id === modelId) {
       modelName = name;
       break;
     }
   }
-  
+
   return `${modelName} (${provider})`;
 }
 
