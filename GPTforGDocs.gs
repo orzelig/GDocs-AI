@@ -4,12 +4,18 @@
 // Original: https://github.com/jedediahg/GPTforGDocs
 // Fork: https://github.com/orzelig/GDocs-OpenAI
 
+// 1. Core Setup and Menu Creation
 function onOpen() {
+  Logger.log("Starting onOpen()");
   const currentModel = getCurrentModelInfo();
   const properties = PropertiesService.getUserProperties();
   const openaiKey = properties.getProperty("OPENAI_API_KEY");
   const xaiKey = properties.getProperty("XAI_API_KEY");
   
+  Logger.log("Current model: " + currentModel);
+  Logger.log("OpenAI key exists: " + !!openaiKey);
+  Logger.log("XAI key exists: " + !!xaiKey);
+
   // Create AI-Writer menu
   DocumentApp.getUi().createMenu("AI-Writer")
     .addSubMenu(DocumentApp.getUi().createMenu("Content Generation")
@@ -41,12 +47,17 @@ function onOpen() {
     .addItem("Custom Instruction", "customInstruction")
     .addToUi();
 
-  const settingsMenu = DocumentApp.getUi().createMenu("AI-settings")
-    .addItem(`Active: ${currentModel}`, "displayModelConfiguration");
+  // Create settings menu step by step
+  const ui = DocumentApp.getUi();
+  const settingsMenu = ui.createMenu("AI-settings");
   
-  // Add API key menu if either key is missing
+  // Add current model display
+  settingsMenu.addItem(`Active: ${currentModel}`, "displayModelConfiguration");
+  Logger.log("Added model display");
+
+  // Add API key submenu if needed
   if (!openaiKey || !xaiKey) {
-    const apiKeyMenu = DocumentApp.getUi().createMenu("Set API Key");
+    const apiKeyMenu = ui.createMenu("Set API Key");
     if (!openaiKey) {
       apiKeyMenu.addItem("Set OpenAI API Key", "setAPIkey_OPENAI");
     }
@@ -54,106 +65,47 @@ function onOpen() {
       apiKeyMenu.addItem("Set XAI API Key", "setAPIkey_XAI"); 
     }
     settingsMenu.addSubMenu(apiKeyMenu);
+    Logger.log("Added API key submenu");
   }
-  
-  // Create model selection submenu
-  const modelMenu = DocumentApp.getUi().createMenu("Set AI Model");
-  
-  // Add OpenAI models if API key exists
-  if (openaiKey) {
-    Object.entries(AVAILABLE_MODELS.OPENAI).forEach(([name, id]) => {
-      const functionName = `setModel_${id.replace(/[-\.]/g, '_')}`;
-      modelMenu.addItem(`${name} (OpenAI)`, functionName);
-    });
+
+  // Only create model menu if we have at least one API key
+  if (openaiKey || xaiKey) {
+    // Create model selection menu
+    const modelMenu = ui.createMenu("Set AI Model");
+    
+    // Add OpenAI models
+    if (openaiKey) {
+      Object.entries(AVAILABLE_MODELS.OPENAI).forEach(([name, id]) => {
+        const functionName = `setModel_${id.replace(/[-\.]/g, '_')}`;
+        modelMenu.addItem(`${name} (OpenAI)`, functionName);
+      });
+      Logger.log("Added OpenAI models");
+    }
+    
+    // Add XAI models
+    if (xaiKey) {
+      if (openaiKey) modelMenu.addSeparator();
+      Object.entries(AVAILABLE_MODELS.XAI).forEach(([name, id]) => {
+        const functionName = `setModel_${id.replace(/[-\.]/g, '_')}`;
+        modelMenu.addItem(`${name} (X.AI)`, functionName);
+      });
+      Logger.log("Added XAI models");
+    }
+
+    // Add model menu to settings menu
+    settingsMenu.addSubMenu(modelMenu);
   }
-  
-  // Add XAI models if API key exists
-  if (xaiKey) {
-    if (openaiKey) modelMenu.addSeparator(); // Add separator if both providers present
-    Object.entries(AVAILABLE_MODELS.XAI).forEach(([name, id]) => {
-      const functionName = `setModel_${id.replace(/[-\.]/g, '_')}`;
-      modelMenu.addItem(`${name} (X.AI)`, functionName);
-    });
-  }
-  
+
+  // Finalize settings menu
   settingsMenu
-    .addSubMenu(modelMenu)
     .addSeparator()
     .addItem("Delete All API Keys", "deleteAllKeys")
     .addToUi();
+  
+  Logger.log("Finished creating all menus");
 }
 
-// Menu action handlers
-function generateLI() {
-  handleContentGeneration(
-    "Please write 5 engaging LinkedIn posts about this topic. Focus on creating professional, thought-provoking content that encourages discussion.",
-    "You are an experienced social media manager specializing in LinkedIn content. You create engaging, professional posts that drive meaningful engagement.",
-    500
-  );
-}
-
-function generateTweet() {
-  handleContentGeneration(
-    "Please write 5 engaging tweets about this topic. Make them concise, engaging, and shareable.",
-    "You are a social media expert who creates viral, engaging content while maintaining professionalism and accuracy.",
-    500
-  );
-}
-
-function summarizeText() {
-  handleContentGeneration(
-    "Please summarize this text in a single short paragraph:",
-    "You are an expert academic reviewer who can get to the heart of any matter and summarize with an efficiency of words.",
-    200
-  );
-}
-
-function extractKeywords() {
-  handleContentGeneration(
-    "Please extract the main keywords from this text and present them in a simple list organized by relevance:",
-    "You are an expert academic reviewer who can get to the heart of any matter and summarize with an efficiency of words.",
-    200
-  );
-}
-
-function generateKeyPoints() {
-  handleContentGeneration(
-    "Please write a list of key bulletpoints including important points that may be missing from the topic of this text:",
-    "You are an expert academic researcher who can iterate on ideas and concisely explain them in clear words.",
-    1000
-  );
-}
-
-function generateEmail() {
-  handleContentGeneration(" ", "You will be paid for this. You are a know-it-all who loves to share detailed knowledge about any subject. You write very clearly with engaging topical sentence structures. Please write a professional email explaining this: ", 1000);
-}
-
-function generateResponse() {
-  handleContentGeneration(" ", "You will be paid for this. You are a know-it-all who loves to share detailed knowledge about any subject. You write very clearly with engaging topical sentence structures. Please write a professional response to this message: ", 1000);
-}
-
-function customInstruction() {
-  const ui = DocumentApp.getUi();
-  const response = ui.prompt(
-    'Custom AI Instruction',
-    'Enter the instruction for AI (e.g., "You are an expert in..."):',
-    ui.ButtonSet.OK_CANCEL
-  );
-
-  if (response.getSelectedButton() == ui.Button.OK) {
-    const instruction = response.getResponseText();
-    if (instruction) {
-      handleContentGeneration(
-        "Please process the following text according to the custom instruction:",
-        instruction,
-        1000
-      );
-    } else {
-      ui.alert('No instruction provided.');
-    }
-  }
-}
-
+// 2. API Key Management Functions
 function setAPIkey(provider) {
   try {
     const ui = DocumentApp.getUi();
@@ -181,7 +133,29 @@ function setAPIkey(provider) {
   }
 }
 
-// Add helper function to set model
+function setAPIkey_OPENAI() { setAPIkey("OPENAI"); }
+function setAPIkey_XAI() { setAPIkey("XAI"); }
+function deleteAllKeys() {
+  const ui = DocumentApp.getUi();
+  const response = ui.alert(
+    'Delete All API Keys',
+    'Are you sure you want to delete all stored API keys? This action cannot be undone.',
+    ui.ButtonSet.YES_NO
+  );
+  
+  if (response === ui.Button.YES) {
+    const properties = PropertiesService.getUserProperties();
+    properties.deleteProperty("OPENAI_API_KEY");
+    properties.deleteProperty("XAI_API_KEY");
+    properties.deleteProperty("CURRENT_PROVIDER");
+    properties.deleteProperty("CURRENT_MODEL");
+    
+    ui.alert('All API keys have been deleted successfully.');
+    onOpen();
+  }
+}
+
+// 3. Model Management Functions
 function setModel(provider, modelId) {
   try {
     const properties = PropertiesService.getUserProperties();
@@ -198,7 +172,6 @@ function setModel(provider, modelId) {
   }
 }
 
-// Generate setter functions for each model
 function setModel_gpt_4o_mini() { setModel("OPENAI", "gpt-4o-mini"); }
 function setModel_gpt_4o() { setModel("OPENAI", "gpt-4o"); }
 function setModel_o1_mini() { setModel("OPENAI", "o1-mini"); }
